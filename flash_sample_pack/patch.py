@@ -54,9 +54,13 @@ def patch_for_multipack(
             train_dataset = self.train_dataset
             data_collator = self.data_collator
             if isinstance(train_dataset, datasets.Dataset):
-                train_dataset = self._remove_unused_columns(train_dataset, description="training")
+                train_dataset = self._remove_unused_columns(
+                    train_dataset, description="training"
+                )
             else:
-                data_collator = self._get_collator_with_removed_columns(data_collator, description="training")
+                data_collator = self._get_collator_with_removed_columns(
+                    data_collator, description="training"
+                )
 
             dataloader_params = {
                 "batch_size": self._train_batch_size,
@@ -70,11 +74,17 @@ def patch_for_multipack(
                 dataloader_params["batch_sampler"] = sampler
                 dataloader_params["drop_last"] = self.args.dataloader_drop_last
                 dataloader_params["worker_init_fn"] = trainer_utils.seed_worker
-                dataloader_params["prefetch_factor"] = self.args.dataloader_prefetch_factor
+                dataloader_params["prefetch_factor"] = (
+                    self.args.dataloader_prefetch_factor
+                )
 
-            return self.accelerator.prepare(DataLoader(train_dataset, **dataloader_params))
-        
-        def get_eval_dataloader(self, eval_dataset: Optional[Union[str, datasets.Dataset]] = None) -> DataLoader:
+            return self.accelerator.prepare(
+                DataLoader(train_dataset, **dataloader_params)
+            )
+
+        def get_eval_dataloader(
+            self, eval_dataset: Optional[Union[str, datasets.Dataset]] = None
+        ) -> DataLoader:
             """
             Returns the evaluation [`~torch.utils.data.DataLoader`].
 
@@ -100,16 +110,18 @@ def patch_for_multipack(
             eval_dataset = (
                 self.eval_dataset[eval_dataset]
                 if isinstance(eval_dataset, str)
-                else eval_dataset
-                if eval_dataset is not None
-                else self.eval_dataset
+                else eval_dataset if eval_dataset is not None else self.eval_dataset
             )
             data_collator = self.data_collator
 
             if isinstance(eval_dataset, datasets.Dataset):
-                eval_dataset = self._remove_unused_columns(eval_dataset, description="evaluation")
+                eval_dataset = self._remove_unused_columns(
+                    eval_dataset, description="evaluation"
+                )
             else:
-                data_collator = self._get_collator_with_removed_columns(data_collator, description="evaluation")
+                data_collator = self._get_collator_with_removed_columns(
+                    data_collator, description="evaluation"
+                )
 
             dataloader_params = {
                 "batch_size": self.args.eval_batch_size,
@@ -128,7 +140,9 @@ def patch_for_multipack(
                 # PATCH END
 
                 dataloader_params["drop_last"] = self.args.dataloader_drop_last
-                dataloader_params["prefetch_factor"] = self.args.dataloader_prefetch_factor
+                dataloader_params["prefetch_factor"] = (
+                    self.args.dataloader_prefetch_factor
+                )
 
             # accelerator.free_memory() will destroy the references, so
             # we need to store the non-prepared version

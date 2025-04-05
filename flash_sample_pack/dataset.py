@@ -124,21 +124,21 @@ def prepare_dataset(
         drop_long_short_seq,
         batched=True,
         desc=f"Dropping Long (>={max_seq_len}) and Short (<={min_seq_len}) Sequences",
-        **filter_map_kwargs
+        **filter_map_kwargs,
     )
 
     dataset = dataset.filter(
         drop_no_trainable_tokens,
         batched=True,
         desc="Drop Samples with Zero Trainable Tokens",
-        **filter_map_kwargs
+        **filter_map_kwargs,
     )
 
     dataset = dataset.map(
         add_position_ids,
         batched=True,
         desc="Add position_id column (Sample Packing)",
-        **filter_map_kwargs
+        **filter_map_kwargs,
     )
 
     return dataset
