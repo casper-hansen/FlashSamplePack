@@ -1,5 +1,6 @@
 import math
 import os
+import functools
 import hashlib
 from pathlib import Path
 from trl import SFTTrainer, SFTConfig
@@ -93,6 +94,16 @@ def load_or_prepare_dataset(
         
         print(f"Saving prepared dataset to disk... {prepared_ds_path}")
         os.makedirs(prepared_ds_path, exist_ok=True)
+        def gen_from_iter_ds(_ds, _=None):
+            yield from _ds
+
+        dataset = Dataset.from_generator(
+            functools.partial(gen_from_iter_ds, dataset),
+            features=dataset.features,
+            num_proc=8,
+            split="train",
+            gen_kwargs={"_": list(range(8))},
+        )
         dataset.save_to_disk(str(prepared_ds_path))
     
     return dataset
