@@ -3,31 +3,31 @@ mistral_eos_token = "eos_token"
 llama31_template_eos_token = "eos_token"
 gemma3_template_eos_token = "<end_of_turn>"
 
-mistral_template = \
-    "{{ bos_token }}"\
-    "{% if messages[0]['role'] == 'system' %}"\
-        "{% if messages[1]['role'] == 'user' %}"\
-            "{{ '[INST] ' + messages[0]['content'] + ' ' + messages[1]['content'] + ' [/INST]' }}"\
-            "{% set loop_messages = messages[2:] %}"\
-        "{% else %}"\
-            "{{ '[INST] ' + messages[0]['content'] + ' [/INST]' }}"\
-            "{% set loop_messages = messages[1:] %}"\
-        "{% endif %}"\
-    "{% else %}"\
-        "{% set loop_messages = messages %}"\
-    "{% endif %}"\
-    "{% for message in loop_messages %}"\
-        "{% if message['role'] == 'user' %}"\
-            "{{ '[INST] ' + message['content'] + ' [/INST]' }}"\
-        "{% elif message['role'] == 'assistant' %}"\
-            "{{ message['content'] + eos_token }}"\
-        "{% else %}"\
-            "{{ raise_exception('Only user and assistant roles are supported!') }}"\
-        "{% endif %}"\
+mistral_template = (
+    "{{ bos_token }}"
+    "{% if messages[0]['role'] == 'system' %}"
+    "{% if messages[1]['role'] == 'user' %}"
+    "{{ '[INST] ' + messages[0]['content'] + ' ' + messages[1]['content'] + ' [/INST]' }}"
+    "{% set loop_messages = messages[2:] %}"
+    "{% else %}"
+    "{{ '[INST] ' + messages[0]['content'] + ' [/INST]' }}"
+    "{% set loop_messages = messages[1:] %}"
+    "{% endif %}"
+    "{% else %}"
+    "{% set loop_messages = messages %}"
+    "{% endif %}"
+    "{% for message in loop_messages %}"
+    "{% if message['role'] == 'user' %}"
+    "{{ '[INST] ' + message['content'] + ' [/INST]' }}"
+    "{% elif message['role'] == 'assistant' %}"
+    "{{ message['content'] + eos_token }}"
+    "{% else %}"
+    "{{ raise_exception('Only user and assistant roles are supported!') }}"
+    "{% endif %}"
     "{% endfor %}"
+)
 
-qwen25_template = \
-"""{%- if tools %}
+qwen25_template = """{%- if tools %}
     {{- \'<|im_start|>system\\n\' }}
     {%- if messages[0][\'role\'] == \'system\' %}
         {{- messages[0][\'content\'] }}
@@ -77,8 +77,7 @@ qwen25_template = \
 {%- endif %}
 """
 
-gemma3_template = \
-"""{{ bos_token }}
+gemma3_template = """{{ bos_token }}
 {%- if messages[0]['role'] == 'system' -%}
     {%- if messages[0]['content'] is string -%}
         {%- set first_user_prefix = messages[0]['content'] + '\n\n' -%}
@@ -120,8 +119,7 @@ gemma3_template = \
 {%- endif -%}
 """
 
-llama31_template = \
-"""{{- bos_token }}
+llama31_template = """{{- bos_token }}
 {%- if custom_tools is defined %}
     {%- set tools = custom_tools %}
 {%- endif %}

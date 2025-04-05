@@ -21,6 +21,7 @@ MODEL_PATH = "Qwen/Qwen2.5-1.5B-Instruct"
 MIN_LEN = 32
 MAX_LEN = 2048
 
+
 def apply_chat_template(
     dataset: Dataset,
     tokenizer: PreTrainedTokenizer,
@@ -41,14 +42,15 @@ def apply_chat_template(
         map_fn,
         num_proc=8,
         desc="Applying Chat Template",
-        remove_columns=[DATASET_COLUMN]
+        remove_columns=[DATASET_COLUMN],
     )
 
     tokenizer.chat_template = chat_template
-    
+
     return dataset
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
     tokenizer.pad_token = tokenizer.eos_token
 
@@ -67,7 +69,7 @@ if __name__ == '__main__':
 
     # NOTE: here we patch model and trainer internals in HF transformers
     patch_for_multipack(batch_sampler)
-    
+
     collator = V2BatchSamplerDataCollatorForSeq2Seq(
         tokenizer=tokenizer,
         padding=True,

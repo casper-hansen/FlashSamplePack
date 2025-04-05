@@ -27,7 +27,9 @@ SUPPORTED_MULTIPACK_MODEL_TYPES = [
 ]
 
 
-def patch_for_multipack(sampler, model_type=None, model_name=None, has_remote_code=False):
+def patch_for_multipack(
+    sampler, model_type=None, model_name=None, has_remote_code=False
+):
     if model_type and model_type not in SUPPORTED_MULTIPACK_MODEL_TYPES:
         raise Exception("This model is not yet supported.")
 
@@ -38,11 +40,11 @@ def patch_for_multipack(sampler, model_type=None, model_name=None, has_remote_co
         transformers.modeling_flash_attention_utils._get_unpad_data = (  # pylint: disable=protected-access
             get_unpad_data
         )
-    
+
     # patch trainer
     def _get_train_sampler(self):
         return sampler
-    
+
     transformers.trainer.Trainer._get_train_sampler = _get_train_sampler
 
 
