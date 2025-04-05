@@ -1,7 +1,11 @@
+import torch
+import datasets
 import importlib
 import transformers
+from typing import Optional, Union
+from torch.utils.data import DataLoader
 from accelerate import init_empty_weights
-from transformers import AutoConfig, AutoModelForCausalLM
+from transformers import AutoConfig, AutoModelForCausalLM, Trainer, trainer_utils
 from flash_sample_pack.attention_utils import get_unpad_data
 
 SUPPORTED_MULTIPACK_MODEL_TYPES = [
@@ -28,7 +32,7 @@ SUPPORTED_MULTIPACK_MODEL_TYPES = [
 
 
 def patch_for_multipack(
-    sampler, model_type=None, model_name=None, has_remote_code=False
+    sampler, eval_sampler=None, model_type=None, model_name=None, has_remote_code=False
 ):
     if model_type and model_type not in SUPPORTED_MULTIPACK_MODEL_TYPES:
         raise Exception("This model is not yet supported.")
@@ -42,10 +46,102 @@ def patch_for_multipack(
         )
 
     # patch trainer
-    def _get_train_sampler(self):
-        return sampler
+    class FlashTrainer(Trainer):
+        def get_train_dataloader(self) -> DataLoader:
+            if self.train_dataset is None:
+                raise ValueError("Trainer: training requires a train_dataset.")
 
-    transformers.trainer.Trainer._get_train_sampler = _get_train_sampler
+            train_dataset = self.train_dataset
+            data_collator = self.data_collator
+            if isinstance(train_dataset, datasets.Dataset):
+                train_dataset = self._remove_unused_columns(train_dataset, description="training")
+            else:
+                data_collator = self._get_collator_with_removed_columns(data_collator, description="training")
+
+            dataloader_params = {
+                "batch_size": self._train_batch_size,
+                "collate_fn": data_collator,
+                "num_workers": self.args.dataloader_num_workers,
+                "pin_memory": self.args.dataloader_pin_memory,
+                "persistent_workers": self.args.dataloader_persistent_workers,
+            }
+
+            if not isinstance(train_dataset, torch.utils.data.IterableDataset):
+                dataloader_params["batch_sampler"] = sampler
+                dataloader_params["drop_last"] = self.args.dataloader_drop_last
+                dataloader_params["worker_init_fn"] = trainer_utils.seed_worker
+                dataloader_params["prefetch_factor"] = self.args.dataloader_prefetch_factor
+
+            return self.accelerator.prepare(DataLoader(train_dataset, **dataloader_params))
+        
+        def get_eval_dataloader(self, eval_dataset: Optional[Union[str, datasets.Dataset]] = None) -> DataLoader:
+            """
+            Returns the evaluation [`~torch.utils.data.DataLoader`].
+
+            Subclass and override this method if you want to inject some custom behavior.
+
+            Args:
+                eval_dataset (`str` or `torch.utils.data.Dataset`, *optional*):
+                    If a `str`, will use `self.eval_dataset[eval_dataset]` as the evaluation dataset. If a `Dataset`, will override `self.eval_dataset` and must implement `__len__`. If it is a [`~datasets.Dataset`], columns not accepted by the `model.forward()` method are automatically removed.
+            """
+            if eval_dataset is None and self.eval_dataset is None:
+                raise ValueError("Trainer: evaluation requires an eval_dataset.")
+
+            # If we have persistent workers, don't do a fork bomb especially as eval datasets
+            # don't change during training
+            dataloader_key = eval_dataset if isinstance(eval_dataset, str) else "eval"
+            if (
+                hasattr(self, "_eval_dataloaders")
+                and dataloader_key in self._eval_dataloaders
+                and self.args.dataloader_persistent_workers
+            ):
+                return self.accelerator.prepare(self._eval_dataloaders[dataloader_key])
+
+            eval_dataset = (
+                self.eval_dataset[eval_dataset]
+                if isinstance(eval_dataset, str)
+                else eval_dataset
+                if eval_dataset is not None
+                else self.eval_dataset
+            )
+            data_collator = self.data_collator
+
+            if isinstance(eval_dataset, datasets.Dataset):
+                eval_dataset = self._remove_unused_columns(eval_dataset, description="evaluation")
+            else:
+                data_collator = self._get_collator_with_removed_columns(data_collator, description="evaluation")
+
+            dataloader_params = {
+                "batch_size": self.args.eval_batch_size,
+                "collate_fn": data_collator,
+                "num_workers": self.args.dataloader_num_workers,
+                "pin_memory": self.args.dataloader_pin_memory,
+                "persistent_workers": self.args.dataloader_persistent_workers,
+            }
+
+            if not isinstance(eval_dataset, torch.utils.data.IterableDataset):
+                # PATCH START
+                if eval_sampler:
+                    dataloader_params["batch_sampler"] = eval_sampler
+                else:
+                    dataloader_params["sampler"] = self._get_eval_sampler(eval_dataset)
+                # PATCH END
+
+                dataloader_params["drop_last"] = self.args.dataloader_drop_last
+                dataloader_params["prefetch_factor"] = self.args.dataloader_prefetch_factor
+
+            # accelerator.free_memory() will destroy the references, so
+            # we need to store the non-prepared version
+            eval_dataloader = DataLoader(eval_dataset, **dataloader_params)
+            if self.args.dataloader_persistent_workers:
+                if hasattr(self, "_eval_dataloaders"):
+                    self._eval_dataloaders[dataloader_key] = eval_dataloader
+                else:
+                    self._eval_dataloaders = {dataloader_key: eval_dataloader}
+
+            return self.accelerator.prepare(eval_dataloader)
+
+    transformers.trainer.Trainer = FlashTrainer
 
 
 def patch_remote(model_name):
