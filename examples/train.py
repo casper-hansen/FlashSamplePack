@@ -68,7 +68,7 @@ if __name__ == "__main__":
         lengths=get_dataset_lengths(dataset),
         packing_efficiency_estimate=1.0,
         batch_max_len=TRAIN_MICRO_BATCH_SIZE * MAX_LEN,
-        batch_size=1,
+        batch_size=TRAIN_MICRO_BATCH_SIZE,
         drop_last=True,
     )
 
@@ -88,7 +88,7 @@ if __name__ == "__main__":
         train_dataset=dataset,
         data_collator=collator,
         args=SFTConfig(
-            max_steps=1000,
+            max_steps=200,
             output_dir=OUTPUT_DIR,
             dataset_text_field=None,
             max_seq_length=MAX_LEN,
@@ -105,7 +105,10 @@ if __name__ == "__main__":
             optim="adamw_torch_fused",
             gradient_checkpointing=True,
             gradient_checkpointing_kwargs={"use_reentrant": False},
-            model_init_kwargs={"attn_implementation": "flash_attention_2"},
+            model_init_kwargs={
+                "attn_implementation": "flash_attention_2",
+                "torch_dtype": "bfloat16"
+            },
         ),
     )
     trainer.train()
