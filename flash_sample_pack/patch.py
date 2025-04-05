@@ -81,6 +81,10 @@ def patch_for_multipack(
                     self.args.dataloader_prefetch_factor
                 )
 
+            # PATCH START
+            self.accelerator.even_batches = False
+            # PATCH END
+
             return self.accelerator.prepare(
                 DataLoader(train_dataset, **dataloader_params)
             )
@@ -156,6 +160,10 @@ def patch_for_multipack(
                     self._eval_dataloaders[dataloader_key] = eval_dataloader
                 else:
                     self._eval_dataloaders = {dataloader_key: eval_dataloader}
+
+            # PATCH START
+            self.accelerator.even_batches = False
+            # PATCH END
 
             return self.accelerator.prepare(eval_dataloader)
 
