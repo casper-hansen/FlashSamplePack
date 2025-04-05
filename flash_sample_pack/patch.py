@@ -71,7 +71,10 @@ def patch_for_multipack(
             }
 
             if not isinstance(train_dataset, torch.utils.data.IterableDataset):
+                # PATCH START
                 dataloader_params["batch_sampler"] = sampler
+                del dataloader_params["batch_size"]
+                # PATCH END
                 dataloader_params["drop_last"] = self.args.dataloader_drop_last
                 dataloader_params["worker_init_fn"] = trainer_utils.seed_worker
                 dataloader_params["prefetch_factor"] = (
@@ -135,6 +138,7 @@ def patch_for_multipack(
                 # PATCH START
                 if eval_sampler:
                     dataloader_params["batch_sampler"] = eval_sampler
+                    del dataloader_params["batch_size"]
                 else:
                     dataloader_params["sampler"] = self._get_eval_sampler(eval_dataset)
                 # PATCH END
