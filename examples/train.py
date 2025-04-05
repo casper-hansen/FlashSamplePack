@@ -35,6 +35,10 @@ def apply_chat_template(
             add_generation_prompt=False,
             return_dict=True,
         )
+        labels = formatted_chat["input_ids"].copy()
+
+        # Predict every token after the first one
+        formatted_chat["labels"] = [-100] + labels[1:]
 
         return formatted_chat
 
@@ -56,10 +60,10 @@ if __name__ == "__main__":
 
     dataset = load_dataset(DATASET_PATH, DATASET_NAME, split=DATASET_SPLIT)
     dataset = apply_chat_template(dataset, tokenizer, qwen25_template)
-    dataset = prepare_dataset(dataset, {"num_proc": 8}, MIN_LEN, MAX_LEN)
+    dataset = prepare_dataset(dataset, MIN_LEN, MAX_LEN, {"num_proc": 8})
 
     batch_sampler = MultipackBatchSampler(
-        RandomSampler(),
+        RandomSampler(dataset),
         lengths=get_dataset_lengths(dataset),
         packing_efficiency_estimate=1.0,
         batch_max_len=TRAIN_MICRO_BATCH_SIZE * MAX_LEN,
