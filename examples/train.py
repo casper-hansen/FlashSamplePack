@@ -1,3 +1,4 @@
+import math
 from trl import SFTTrainer, SFTConfig
 from datasets import load_dataset, Dataset
 from torch.utils.data import RandomSampler
@@ -77,6 +78,8 @@ if __name__ == "__main__":
     collator = V2BatchSamplerDataCollatorForSeq2Seq(
         tokenizer=tokenizer,
         padding=True,
+        max_length=MAX_LEN,
+        pad_to_multiple_of=8 * math.ceil(MAX_LEN / 8),
     )
 
     trainer = SFTTrainer(
@@ -85,12 +88,13 @@ if __name__ == "__main__":
         train_dataset=dataset,
         data_collator=collator,
         args=SFTConfig(
-            max_steps=10,
+            max_steps=1000,
             output_dir=OUTPUT_DIR,
             dataset_text_field=None,
             max_seq_length=MAX_LEN,
             dataset_num_proc=8,
             per_device_train_batch_size=TRAIN_MICRO_BATCH_SIZE,
+            include_tokens_per_second=True,
             gradient_accumulation_steps=1,
             learning_rate=2e-5,
             max_grad_norm=1.0,
