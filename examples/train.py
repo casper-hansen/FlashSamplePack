@@ -66,6 +66,7 @@ if __name__ == '__main__':
             optim="adamw_torch_fused",
             gradient_checkpointing=True,
             gradient_checkpointing_kwargs={"use_reentrant": False},
+            model_init_kwargs={"attn_implementation": "flash_attention_2"},
         )
     )
     trainer.train()
