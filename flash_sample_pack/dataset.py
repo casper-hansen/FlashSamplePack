@@ -3,6 +3,20 @@ from typing import Dict
 from datasets import Dataset
 import numpy as np
 
+def get_dataset_lengths(dataset, from_arrow=False):
+    if "length" in dataset.column_names:
+        lengths = np.array(dataset["length"])
+    elif "position_ids" in dataset.column_names:
+        position_ids = dataset["position_ids"]
+        lengths = np.array([x[-1] + 1 for x in position_ids])
+    else:
+        if from_arrow:
+            input_ids = dataset.data.column("input_ids")
+            lengths = np.vectorize(len)(np.array(input_ids, dtype=object))
+        else:
+            input_ids = dataset["input_ids"]
+            lengths = np.array([len(seq) for seq in input_ids])
+    return lengths
 
 def drop_sequences(sample, max_seq_len=2048, min_seq_len=2):
     """
@@ -96,23 +110,21 @@ def add_position_ids(sample):
 
 
 def prepare_dataset(
-    dataset: Dataset, filter_map_kwargs: Dict, min_seq_len=2, max_seq_len=2048
+    dataset: Dataset, filter_map_kwargs: Dict = {}, min_seq_len=2, max_seq_len=2048
 ):
-    # drop long and short sequences
     drop_long_short_seq = partial(
         drop_sequences,
-        sequence_len=max_seq_len,
-        min_sequence_len=min_seq_len,
+        max_seq_len=max_seq_len,
+        min_seq_len=min_seq_len,
     )
 
     dataset = dataset.filter(
         drop_long_short_seq,
         batched=True,
-        desc=f"Dropping Long (>={max_seq_len}) and Short (<={min_seq_len}) Sequences"
-        ** filter_map_kwargs,
+        desc=f"Dropping Long (>={max_seq_len}) and Short (<={min_seq_len}) Sequences",
+        **filter_map_kwargs,
     )
 
-    # filter untrainable tokens
     dataset = dataset.map(
         drop_no_trainable_tokens,
         batched=True,
@@ -120,10 +132,11 @@ def prepare_dataset(
         **filter_map_kwargs,
     )
 
-    # position id
     dataset = dataset.map(
         add_position_ids,
         batched=True,
         desc="Add position_id column (Sample Packing)",
         **filter_map_kwargs,
     )
+
+    return dataset
