@@ -87,7 +87,7 @@ if __name__ == "__main__":
         args=SFTConfig(
             max_steps=10,
             output_dir=OUTPUT_DIR,
-            dataset_text_field="text",
+            dataset_text_field=None,
             max_seq_length=MAX_LEN,
             dataset_num_proc=8,
             per_device_train_batch_size=TRAIN_MICRO_BATCH_SIZE,
