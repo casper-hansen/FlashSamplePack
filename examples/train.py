@@ -1,6 +1,9 @@
 import math
+import os
+import hashlib
+from pathlib import Path
 from trl import SFTTrainer, SFTConfig
-from datasets import load_dataset, Dataset
+from datasets import load_dataset, Dataset, load_from_disk
 from torch.utils.data import RandomSampler
 from transformers import AutoTokenizer, PreTrainedTokenizer
 from flash_sample_pack import (
@@ -13,6 +16,7 @@ from flash_sample_pack import (
 )
 
 OUTPUT_DIR = "./outputs"
+DATASET_PREPARED_PATH = "./prepared_datasets"
 DATASET_PATH = "HuggingFaceTB/smoltalk"
 DATASET_NAME = "everyday-conversations"
 DATASET_SPLIT = "train"
@@ -54,14 +58,58 @@ def apply_chat_template(
 
     return dataset
 
+def md5(text):
+    """Generate MD5 hash for a string."""
+    return hashlib.md5(text.encode()).hexdigest()
+
+def load_or_prepare_dataset(
+    tokenizer: PreTrainedTokenizer,
+    chat_template: str,
+    dataset_path: str = DATASET_PATH,
+    dataset_name: str = DATASET_NAME,
+    dataset_split: str = DATASET_SPLIT,
+    min_len: int = MIN_LEN,
+    max_len: int = MAX_LEN,
+    dataset_prepared_path: str = DATASET_PREPARED_PATH,
+):
+    """Load a cached dataset or prepare and cache a new one."""
+    ds_hash = md5(
+        f"{dataset_path}:{dataset_name}:{dataset_split}:{min_len}:{max_len}:{chat_template}"
+    )
+    
+    prepared_ds_path = Path(dataset_prepared_path) / ds_hash
+    
+    if prepared_ds_path.exists() and any(prepared_ds_path.glob("*")):
+        print(f"Loading prepared dataset from disk at {prepared_ds_path}...")
+        dataset = load_from_disk(str(prepared_ds_path))
+        print("Prepared dataset loaded from disk...")
+    else:
+        print(f"Unable to find prepared dataset in {prepared_ds_path}")
+        print("Loading and processing raw dataset...")
+        
+        dataset = load_dataset(dataset_path, dataset_name, split=dataset_split)
+        dataset = apply_chat_template(dataset, tokenizer, chat_template)
+        dataset = prepare_dataset(dataset, min_len, max_len, {"num_proc": 8})
+        
+        print(f"Saving prepared dataset to disk... {prepared_ds_path}")
+        os.makedirs(prepared_ds_path, exist_ok=True)
+        dataset.save_to_disk(str(prepared_ds_path))
+    
+    return dataset
 
 if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
     tokenizer.pad_token = tokenizer.eos_token
 
-    dataset = load_dataset(DATASET_PATH, DATASET_NAME, split=DATASET_SPLIT)
-    dataset = apply_chat_template(dataset, tokenizer, qwen25_template)
-    dataset = prepare_dataset(dataset, MIN_LEN, MAX_LEN, {"num_proc": 8})
+    dataset = load_or_prepare_dataset(
+        tokenizer=tokenizer,
+        chat_template=qwen25_template,
+        dataset_path=DATASET_PATH,
+        dataset_name=DATASET_NAME,
+        dataset_split=DATASET_SPLIT,
+        min_len=MIN_LEN,
+        max_len=MAX_LEN,
+    )
 
     batch_sampler = MultipackBatchSampler(
         RandomSampler(dataset),
