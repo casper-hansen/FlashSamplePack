@@ -14,6 +14,7 @@ setup(
         "flash-attn==2.7.4.post1",
     ],
     extras_require={
+        "train": ["trl"],
         "dev": ["black", "pytest"],
     },
     python_requires=">=3.10",

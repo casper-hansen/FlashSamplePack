@@ -1,0 +1,71 @@
+from trl import SFTTrainer, SFTConfig
+from datasets import load_dataset, Dataset
+from transformers import AutoTokenizer, PreTrainedTokenizer
+from flash_sample_pack.chat_templates import qwen25_template
+
+OUTPUT_DIR = "./outputs"
+DATASET_PATH = "HuggingFaceTB/smoltalk"
+DATASET_NAME = "everyday-conversations"
+DATASET_SPLIT = "train"
+DATASET_COLUMN = "messages"
+MODEL_PATH = "Qwen/Qwen2.5-1.5B-Instruct"
+MIN_LEN = 32
+MAX_LEN = 2048
+
+def apply_chat_template(
+    dataset: Dataset,
+    tokenizer: PreTrainedTokenizer,
+    chat_template: str,
+) -> Dataset:
+    def map_fn(example):
+        formatted_chat = tokenizer.apply_chat_template(
+            example[DATASET_COLUMN],
+            chat_template=chat_template,
+            tokenize=False,
+            add_generation_prompt=False,
+        )
+
+        return {"text": formatted_chat}
+
+    dataset = dataset.map(
+        map_fn,
+        num_proc=8,
+        desc="Applying Chat Template",
+        remove_columns=[DATASET_COLUMN]
+    )
+
+    tokenizer.chat_template = chat_template
+    
+    return dataset
+
+if __name__ == '__main__':
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
+    tokenizer.pad_token = tokenizer.eos_token
+
+    dataset = load_dataset(DATASET_PATH, DATASET_NAME, split=DATASET_SPLIT)
+    dataset = apply_chat_template(dataset, tokenizer, qwen25_template)
+
+    trainer = SFTTrainer(
+        model=MODEL_PATH,
+        processing_class=tokenizer,
+        train_dataset=dataset,
+        args=SFTConfig(
+            max_steps=10,
+            output_dir=OUTPUT_DIR,
+            dataset_text_field="text",
+            max_seq_length=MAX_LEN,
+            dataset_num_proc=8,
+            per_device_train_batch_size=1,
+            gradient_accumulation_steps=1,
+            learning_rate=2e-5,
+            max_grad_norm=1.0,
+            warmup_ratio=0.1,
+            weight_decay=0.01,
+            logging_steps=1,
+            bf16=True,
+            optim="adamw_torch_fused",
+            gradient_checkpointing=True,
+            gradient_checkpointing_kwargs={"use_reentrant": False},
+        )
+    )
+    trainer.train()
