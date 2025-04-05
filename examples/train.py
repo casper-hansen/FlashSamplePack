@@ -79,29 +79,29 @@ if __name__ == "__main__":
         padding=True,
     )
 
-    # trainer = SFTTrainer(
-    #     model=MODEL_PATH,
-    #     processing_class=tokenizer,
-    #     train_dataset=dataset,
-    #     data_collator=collator,
-    #     args=SFTConfig(
-    #         max_steps=10,
-    #         output_dir=OUTPUT_DIR,
-    #         dataset_text_field="text",
-    #         max_seq_length=MAX_LEN,
-    #         dataset_num_proc=8,
-    #         per_device_train_batch_size=1,
-    #         gradient_accumulation_steps=1,
-    #         learning_rate=2e-5,
-    #         max_grad_norm=1.0,
-    #         warmup_ratio=0.1,
-    #         weight_decay=0.01,
-    #         logging_steps=1,
-    #         bf16=True,
-    #         optim="adamw_torch_fused",
-    #         gradient_checkpointing=True,
-    #         gradient_checkpointing_kwargs={"use_reentrant": False},
-    #         model_init_kwargs={"attn_implementation": "flash_attention_2"},
-    #     )
-    # )
-    # trainer.train()
+    trainer = SFTTrainer(
+        model=MODEL_PATH,
+        processing_class=tokenizer,
+        train_dataset=dataset,
+        data_collator=collator,
+        args=SFTConfig(
+            max_steps=10,
+            output_dir=OUTPUT_DIR,
+            dataset_text_field="text",
+            max_seq_length=MAX_LEN,
+            dataset_num_proc=8,
+            per_device_train_batch_size=TRAIN_MICRO_BATCH_SIZE,
+            gradient_accumulation_steps=1,
+            learning_rate=2e-5,
+            max_grad_norm=1.0,
+            warmup_ratio=0.1,
+            weight_decay=0.01,
+            logging_steps=1,
+            bf16=True,
+            optim="adamw_torch_fused",
+            gradient_checkpointing=True,
+            gradient_checkpointing_kwargs={"use_reentrant": False},
+            model_init_kwargs={"attn_implementation": "flash_attention_2"},
+        )
+    )
+    trainer.train()
