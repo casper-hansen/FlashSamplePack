@@ -1,19 +1,8 @@
-import os
-import math
-import hashlib
-from pathlib import Path
 from trl import SFTTrainer, SFTConfig
-from datasets import load_dataset, Dataset, load_from_disk
-from torch.utils.data import RandomSampler
+from datasets import load_dataset, Dataset
 from transformers import AutoTokenizer, PreTrainedTokenizer
 from flashpack import (
-    patch_for_multipack,
     qwen25_template,
-    V2BatchSamplerDataCollatorForSeq2Seq,
-    MultipackBatchSampler,
-    prepare_dataset,
-    get_dataset_lengths,
-    cache_dataset,
 )
 
 OUTPUT_DIR = "./outputs"
@@ -25,13 +14,7 @@ DATASET_COLUMN = "messages"
 CHAT_TEMPLATE = qwen25_template
 TRAIN_MICRO_BATCH_SIZE = 8
 MODEL_PATH = "Qwen/Qwen2.5-1.5B-Instruct"
-MIN_LEN = 32
 MAX_LEN = 2048
-FINGERPRINT_HASH = hashlib.md5(
-     f"{MODEL_PATH}:{DATASET_PATH}:{DATASET_NAME}:{DATASET_SPLIT}:{MIN_LEN}:{MAX_LEN}:{CHAT_TEMPLATE}".encode()
-).hexdigest()
-PREPARED_HASH_PATH = Path(DATASET_PREPARED_PATH) / FINGERPRINT_HASH
-os.makedirs(PREPARED_HASH_PATH, exist_ok=True)
 
 
 def apply_chat_template(
@@ -43,16 +26,11 @@ def apply_chat_template(
         formatted_chat = tokenizer.apply_chat_template(
             example[DATASET_COLUMN],
             chat_template=chat_template,
-            tokenize=True,
+            tokenize=False,
             add_generation_prompt=False,
-            return_dict=True,
         )
-        labels = formatted_chat["input_ids"].copy()
 
-        # Predict every token after the first one
-        formatted_chat["labels"] = [-100] + labels[1:]
-
-        return formatted_chat
+        return {"text": formatted_chat}
 
     dataset = dataset.map(
         map_fn,
@@ -71,43 +49,18 @@ if __name__ == "__main__":
     tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "left"
 
-    if PREPARED_HASH_PATH.exists() and any(PREPARED_HASH_PATH.glob("*")):
-        dataset = load_from_disk(str(PREPARED_HASH_PATH))
-    else:
-        dataset = load_dataset(DATASET_PATH, DATASET_NAME, split=DATASET_SPLIT)
-        dataset = apply_chat_template(dataset, tokenizer, CHAT_TEMPLATE)
-        dataset = prepare_dataset(dataset, MIN_LEN, MAX_LEN, {"num_proc": 8})
-        dataset = cache_dataset(dataset, PREPARED_HASH_PATH)
-    
-    batch_sampler = MultipackBatchSampler(
-        RandomSampler(dataset),
-        lengths=get_dataset_lengths(dataset),
-        packing_efficiency_estimate=1.0,
-        batch_max_len=TRAIN_MICRO_BATCH_SIZE * MAX_LEN,
-        batch_size=TRAIN_MICRO_BATCH_SIZE,
-        drop_last=True,
-    )
-
-    # NOTE: here we patch model and trainer internals in HF transformers
-    patch_for_multipack(batch_sampler)
-
-    collator = V2BatchSamplerDataCollatorForSeq2Seq(
-        tokenizer=tokenizer,
-        padding=True,
-        max_length=MAX_LEN,
-        pad_to_multiple_of=8 * math.ceil(MAX_LEN / 8),
-    )
+    dataset = load_dataset(DATASET_PATH, DATASET_NAME, split=DATASET_SPLIT)
+    dataset = apply_chat_template(dataset, tokenizer, CHAT_TEMPLATE)
 
     trainer = SFTTrainer(
         model=MODEL_PATH,
         processing_class=tokenizer,
         train_dataset=dataset,
-        data_collator=collator,
         args=SFTConfig(
             output_dir=OUTPUT_DIR,
             num_train_epochs=1,
             save_strategy="epoch",
-            dataset_text_field=None,
+            dataset_text_field="text",
             max_seq_length=MAX_LEN,
             dataset_num_proc=8,
             per_device_train_batch_size=TRAIN_MICRO_BATCH_SIZE,
@@ -125,7 +78,7 @@ if __name__ == "__main__":
             model_init_kwargs={
                 "attn_implementation": "flash_attention_2",
                 "torch_dtype": "bfloat16",
-                "use_cache": False,
+                "use_cache": False
             },
         ),
     )
