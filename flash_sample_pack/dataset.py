@@ -161,6 +161,6 @@ def cache_dataset(dataset: Dataset, prepared_hash_path: str, num_workers=8):
             "num_workers": [num_workers] * num_workers
         }
     )
-    dataset.save_to_disk(str(prepared_ds_path))
+    dataset.save_to_disk(str(prepared_hash_path))
 
     return dataset
