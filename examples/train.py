@@ -79,9 +79,6 @@ if __name__ == "__main__":
         dataset = prepare_dataset(dataset, MIN_LEN, MAX_LEN, {"num_proc": 8})
         dataset = cache_dataset(dataset, PREPARED_HASH_PATH)
     
-    print(dataset)
-    exit(0)
-
     batch_sampler = MultipackBatchSampler(
         RandomSampler(dataset),
         lengths=get_dataset_lengths(dataset),
