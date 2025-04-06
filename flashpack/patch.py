@@ -5,6 +5,8 @@ import transformers
 from typing import Optional, Union
 from torch.utils.data import DataLoader
 from accelerate import init_empty_weights
+from torch.utils.data._utils.fetch import _BaseDatasetFetcher
+from torch.utils.data._utils.worker import _worker_loop
 from transformers import AutoConfig, AutoModelForCausalLM, Trainer, trainer_utils
 from flashpack.attention_utils import get_unpad_data
 
@@ -12,6 +14,10 @@ from flashpack.attention_utils import get_unpad_data
 def patch_for_multipack(
     sampler, eval_sampler=None, model_name=None, has_remote_code=False
 ):
+    # patch dataloading
+    torch.utils.data._utils.worker._worker_loop = patched_worker_loop
+    patch_fetchers()
+
     # patch model
     if has_remote_code:
         patch_remote(model_name)
@@ -159,3 +165,38 @@ def patch_remote(model_name):
         modeling_arch._get_unpad_data = (  # pylint: disable=protected-access
             get_unpad_data
         )
+
+class _MapDatasetFetcher(_BaseDatasetFetcher):
+    def fetch(self, possibly_batched_index):
+        if isinstance(possibly_batched_index[0], list):
+            data = [None for i in possibly_batched_index]
+            for i, possibly_batched_index_ in enumerate(possibly_batched_index):
+                if self.auto_collation:
+                    if (
+                        hasattr(self.dataset, "__getitems__")
+                        and self.dataset.__getitems__
+                    ):
+                        data[i] = self.dataset.__getitems__(possibly_batched_index_)
+                    else:
+                        data[i] = [self.dataset[idx] for idx in possibly_batched_index_]
+                else:
+                    data[i] = self.dataset[possibly_batched_index_]
+        else:
+            if self.auto_collation:
+                if hasattr(self.dataset, "__getitems__") and self.dataset.__getitems__:
+                    data = self.dataset.__getitems__(possibly_batched_index)
+                else:
+                    data = [self.dataset[idx] for idx in possibly_batched_index]
+            else:
+                data = self.dataset[possibly_batched_index]
+        return self.collate_fn(data)
+
+
+def patch_fetchers():
+    torch.utils.data._utils.fetch._MapDatasetFetcher = _MapDatasetFetcher
+    torch.utils.data.dataloader._utils.fetch._MapDatasetFetcher = _MapDatasetFetcher
+
+
+def patched_worker_loop(*args, **kwargs):
+    patch_fetchers()
+    return _worker_loop(*args, **kwargs)
