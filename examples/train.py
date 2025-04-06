@@ -23,7 +23,7 @@ DATASET_NAME = "everyday-conversations"
 DATASET_SPLIT = "train"
 DATASET_COLUMN = "messages"
 CHAT_TEMPLATE = qwen25_template
-TRAIN_MICRO_BATCH_SIZE = 8
+TRAIN_MICRO_BATCH_SIZE = 6
 MODEL_PATH = "Qwen/Qwen2.5-1.5B-Instruct"
 MIN_LEN = 32
 MAX_LEN = 2048
@@ -84,7 +84,7 @@ if __name__ == "__main__":
         lengths=get_dataset_lengths(dataset),
         packing_efficiency_estimate=1.0,
         batch_max_len=TRAIN_MICRO_BATCH_SIZE * MAX_LEN,
-        batch_size=TRAIN_MICRO_BATCH_SIZE,
+        batch_size=1,
         drop_last=True,
     )
 
