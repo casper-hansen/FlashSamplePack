@@ -64,6 +64,7 @@ def apply_chat_template(
 if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
     tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.padding_side = "left"
 
     dataset = load_dataset(DATASET_PATH, DATASET_NAME, split=DATASET_SPLIT)
     dataset = apply_chat_template(dataset, tokenizer, CHAT_TEMPLATE)
@@ -95,8 +96,8 @@ if __name__ == "__main__":
         train_dataset=dataset,
         data_collator=collator,
         args=SFTConfig(
-            max_steps=200,
-            output_dir=OUTPUT_DIR,
+            num_train_epochs=1,
+            save_strategy="epoch",
             dataset_text_field=None,
             max_seq_length=MAX_LEN,
             dataset_num_proc=8,
@@ -110,8 +111,8 @@ if __name__ == "__main__":
             logging_steps=1,
             bf16=True,
             optim="adamw_torch_fused",
-            gradient_checkpointing=True,
-            gradient_checkpointing_kwargs={"use_reentrant": False},
+            # gradient_checkpointing=True,
+            # gradient_checkpointing_kwargs={"use_reentrant": False},
             model_init_kwargs={
                 "attn_implementation": "flash_attention_2",
                 "torch_dtype": "bfloat16",
