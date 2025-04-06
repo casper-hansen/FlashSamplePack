@@ -6,7 +6,7 @@ from trl import SFTTrainer, SFTConfig
 from datasets import load_dataset, Dataset, load_from_disk
 from torch.utils.data import RandomSampler
 from transformers import AutoTokenizer, PreTrainedTokenizer
-from flash_sample_pack import (
+from flashpack import (
     patch_for_multipack,
     qwen25_template,
     V2BatchSamplerDataCollatorForSeq2Seq,

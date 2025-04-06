@@ -6,7 +6,7 @@ from typing import Optional, Union
 from torch.utils.data import DataLoader
 from accelerate import init_empty_weights
 from transformers import AutoConfig, AutoModelForCausalLM, Trainer, trainer_utils
-from flash_sample_pack.attention_utils import get_unpad_data
+from flashpack.attention_utils import get_unpad_data
 
 
 def patch_for_multipack(

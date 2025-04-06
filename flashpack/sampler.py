@@ -6,7 +6,7 @@ import numba
 import numpy as np
 from torch.utils.data import BatchSampler, Sampler, SequentialSampler
 
-from flash_sample_pack.distributed import reduce_and_broadcast
+from flashpack.distributed import reduce_and_broadcast
 
 LOG = logging.getLogger(__name__)
 
