@@ -24,7 +24,10 @@ TRAIN_MICRO_BATCH_SIZE = 1
 MODEL_PATH = "Qwen/Qwen2.5-1.5B-Instruct"
 MIN_LEN = 32
 MAX_LEN = 2048
-FINGERPRINT = f"{DATASET_PATH}:{DATASET_NAME}:{DATASET_SPLIT}:{MIN_LEN}:{MAX_LEN}:{CHAT_TEMPLATE}"
+FINGERPRINT = (
+    f"{DATASET_PATH}:{DATASET_NAME}:{DATASET_SPLIT}:{MIN_LEN}:{MAX_LEN}:{CHAT_TEMPLATE}"
+)
+
 
 def apply_chat_template(
     dataset: Dataset,
@@ -56,6 +59,7 @@ def apply_chat_template(
     tokenizer.chat_template = chat_template
 
     return dataset
+
 
 if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
@@ -110,7 +114,7 @@ if __name__ == "__main__":
             gradient_checkpointing_kwargs={"use_reentrant": False},
             model_init_kwargs={
                 "attn_implementation": "flash_attention_2",
-                "torch_dtype": "bfloat16"
+                "torch_dtype": "bfloat16",
             },
         ),
     )

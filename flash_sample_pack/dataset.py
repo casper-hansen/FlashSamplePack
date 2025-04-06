@@ -147,17 +147,19 @@ def prepare_dataset(
 
     return dataset
 
+
 def cache_dataset(dataset: Dataset, fingerprint: str, dataset_prepared_path: str):
     ds_hash = hashlib.md5(fingerprint.encode()).hexdigest()
-    
+
     prepared_ds_path = Path(dataset_prepared_path) / ds_hash
-    
+
     if prepared_ds_path.exists() and any(prepared_ds_path.glob("*")):
         print(f"Loading prepared dataset from disk at {prepared_ds_path}...")
         dataset = load_from_disk(str(prepared_ds_path))
     else:
         print(f"Saving prepared dataset to disk... {prepared_ds_path}")
         os.makedirs(prepared_ds_path, exist_ok=True)
+
         def gen_from_iter_ds(_ds, _=None):
             yield from _ds
 
@@ -169,5 +171,5 @@ def cache_dataset(dataset: Dataset, fingerprint: str, dataset_prepared_path: str
             gen_kwargs={"_": list(range(8))},
         )
         dataset.save_to_disk(str(prepared_ds_path))
-    
+
     return dataset
