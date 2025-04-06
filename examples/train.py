@@ -1,10 +1,6 @@
 import math
-import os
-import functools
-import hashlib
-from pathlib import Path
 from trl import SFTTrainer, SFTConfig
-from datasets import load_dataset, Dataset, load_from_disk
+from datasets import load_dataset, Dataset
 from torch.utils.data import RandomSampler
 from transformers import AutoTokenizer, PreTrainedTokenizer
 from flash_sample_pack import (
@@ -14,6 +10,7 @@ from flash_sample_pack import (
     MultipackBatchSampler,
     prepare_dataset,
     get_dataset_lengths,
+    cache_dataset,
 )
 
 OUTPUT_DIR = "./outputs"
@@ -22,11 +19,12 @@ DATASET_PATH = "HuggingFaceTB/smoltalk"
 DATASET_NAME = "everyday-conversations"
 DATASET_SPLIT = "train"
 DATASET_COLUMN = "messages"
+CHAT_TEMPLATE = qwen25_template
 TRAIN_MICRO_BATCH_SIZE = 1
 MODEL_PATH = "Qwen/Qwen2.5-1.5B-Instruct"
 MIN_LEN = 32
 MAX_LEN = 2048
-
+FINGERPRINT = f"{DATASET_PATH}:{DATASET_NAME}:{DATASET_SPLIT}:{MIN_LEN}:{MAX_LEN}:{CHAT_TEMPLATE}"
 
 def apply_chat_template(
     dataset: Dataset,
@@ -59,68 +57,14 @@ def apply_chat_template(
 
     return dataset
 
-def md5(text):
-    """Generate MD5 hash for a string."""
-    return hashlib.md5(text.encode()).hexdigest()
-
-def load_or_prepare_dataset(
-    tokenizer: PreTrainedTokenizer,
-    chat_template: str,
-    dataset_path: str = DATASET_PATH,
-    dataset_name: str = DATASET_NAME,
-    dataset_split: str = DATASET_SPLIT,
-    min_len: int = MIN_LEN,
-    max_len: int = MAX_LEN,
-    dataset_prepared_path: str = DATASET_PREPARED_PATH,
-):
-    """Load a cached dataset or prepare and cache a new one."""
-    ds_hash = md5(
-        f"{dataset_path}:{dataset_name}:{dataset_split}:{min_len}:{max_len}:{chat_template}"
-    )
-    
-    prepared_ds_path = Path(dataset_prepared_path) / ds_hash
-    
-    if prepared_ds_path.exists() and any(prepared_ds_path.glob("*")):
-        print(f"Loading prepared dataset from disk at {prepared_ds_path}...")
-        dataset = load_from_disk(str(prepared_ds_path))
-        print("Prepared dataset loaded from disk...")
-    else:
-        print(f"Unable to find prepared dataset in {prepared_ds_path}")
-        print("Loading and processing raw dataset...")
-        
-        dataset = load_dataset(dataset_path, dataset_name, split=dataset_split)
-        dataset = apply_chat_template(dataset, tokenizer, chat_template)
-        dataset = prepare_dataset(dataset, min_len, max_len, {"num_proc": 8})
-        
-        print(f"Saving prepared dataset to disk... {prepared_ds_path}")
-        os.makedirs(prepared_ds_path, exist_ok=True)
-        def gen_from_iter_ds(_ds, _=None):
-            yield from _ds
-
-        dataset = Dataset.from_generator(
-            functools.partial(gen_from_iter_ds, dataset),
-            features=dataset.features,
-            num_proc=8,
-            split="train",
-            gen_kwargs={"_": list(range(8))},
-        )
-        dataset.save_to_disk(str(prepared_ds_path))
-    
-    return dataset
-
 if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
     tokenizer.pad_token = tokenizer.eos_token
 
-    dataset = load_or_prepare_dataset(
-        tokenizer=tokenizer,
-        chat_template=qwen25_template,
-        dataset_path=DATASET_PATH,
-        dataset_name=DATASET_NAME,
-        dataset_split=DATASET_SPLIT,
-        min_len=MIN_LEN,
-        max_len=MAX_LEN,
-    )
+    dataset = load_dataset(DATASET_PATH, DATASET_NAME, split=DATASET_SPLIT)
+    dataset = apply_chat_template(dataset, tokenizer, CHAT_TEMPLATE)
+    dataset = prepare_dataset(dataset, MIN_LEN, MAX_LEN, {"num_proc": 8})
+    dataset = cache_dataset(dataset, FINGERPRINT, DATASET_PREPARED_PATH)
 
     batch_sampler = MultipackBatchSampler(
         RandomSampler(dataset),

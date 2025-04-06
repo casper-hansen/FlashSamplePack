@@ -1,7 +1,11 @@
-from functools import partial
-from typing import Dict
-from datasets import Dataset
+import os
+import functools
+import hashlib
 import numpy as np
+from typing import Dict
+from pathlib import Path
+from functools import partial
+from datasets import Dataset, load_from_disk
 
 
 def get_dataset_lengths(dataset, from_arrow=False):
@@ -141,4 +145,29 @@ def prepare_dataset(
         **filter_map_kwargs,
     )
 
+    return dataset
+
+def cache_dataset(dataset: Dataset, fingerprint: str, dataset_prepared_path: str):
+    ds_hash = hashlib.md5(fingerprint.encode()).hexdigest()
+    
+    prepared_ds_path = Path(dataset_prepared_path) / ds_hash
+    
+    if prepared_ds_path.exists() and any(prepared_ds_path.glob("*")):
+        print(f"Loading prepared dataset from disk at {prepared_ds_path}...")
+        dataset = load_from_disk(str(prepared_ds_path))
+    else:
+        print(f"Saving prepared dataset to disk... {prepared_ds_path}")
+        os.makedirs(prepared_ds_path, exist_ok=True)
+        def gen_from_iter_ds(_ds, _=None):
+            yield from _ds
+
+        dataset = Dataset.from_generator(
+            functools.partial(gen_from_iter_ds, dataset),
+            features=dataset.features,
+            num_proc=8,
+            split="train",
+            gen_kwargs={"_": list(range(8))},
+        )
+        dataset.save_to_disk(str(prepared_ds_path))
+    
     return dataset

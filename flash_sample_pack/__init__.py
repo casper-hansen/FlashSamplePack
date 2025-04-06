@@ -3,4 +3,4 @@ from flash_sample_pack.attention_utils import get_unpad_data
 from flash_sample_pack.chat_templates import qwen25_template
 from flash_sample_pack.collator import V2BatchSamplerDataCollatorForSeq2Seq
 from flash_sample_pack.sampler import MultipackBatchSampler
-from flash_sample_pack.dataset import prepare_dataset, get_dataset_lengths
+from flash_sample_pack.dataset import prepare_dataset, get_dataset_lengths, cache_dataset
