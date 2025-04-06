@@ -8,35 +8,9 @@ from accelerate import init_empty_weights
 from transformers import AutoConfig, AutoModelForCausalLM, Trainer, trainer_utils
 from flash_sample_pack.attention_utils import get_unpad_data
 
-SUPPORTED_MULTIPACK_MODEL_TYPES = [
-    "mllama_text_model",
-    "llama",
-    "mistral",
-    "mixtral",
-    "qwen2",
-    "qwen2_moe",
-    "falcon",
-    "phi",
-    "phi3",
-    "gemma",
-    "gemma2",
-    "gemma3",
-    "gemma3_text",
-    "cohere",
-    "cohere2",
-    "gemmoe",
-    "starcoder2",
-    "deepseek_v2",
-    "deepseek_v3",
-]
-
-
 def patch_for_multipack(
-    sampler, eval_sampler=None, model_type=None, model_name=None, has_remote_code=False
+    sampler, eval_sampler=None, model_name=None, has_remote_code=False
 ):
-    if model_type and model_type not in SUPPORTED_MULTIPACK_MODEL_TYPES:
-        raise Exception("This model is not yet supported.")
-
     # patch model
     if has_remote_code:
         patch_remote(model_name)
