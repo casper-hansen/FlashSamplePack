@@ -1,6 +1,9 @@
+import os
 import math
+import hashlib
+from pathlib import Path
 from trl import SFTTrainer, SFTConfig
-from datasets import load_dataset, Dataset
+from datasets import load_dataset, Dataset, load_from_disk
 from torch.utils.data import RandomSampler
 from transformers import AutoTokenizer, PreTrainedTokenizer
 from flash_sample_pack import (
@@ -24,9 +27,11 @@ TRAIN_MICRO_BATCH_SIZE = 1
 MODEL_PATH = "Qwen/Qwen2.5-1.5B-Instruct"
 MIN_LEN = 32
 MAX_LEN = 2048
-FINGERPRINT = (
-    f"{DATASET_PATH}:{DATASET_NAME}:{DATASET_SPLIT}:{MIN_LEN}:{MAX_LEN}:{CHAT_TEMPLATE}"
-)
+FINGERPRINT_HASH = hashlib.md5(
+     f"{DATASET_PATH}:{DATASET_NAME}:{DATASET_SPLIT}:{MIN_LEN}:{MAX_LEN}:{CHAT_TEMPLATE}".encode()
+).hexdigest()
+PREPARED_HASH_PATH = Path(DATASET_PREPARED_PATH) / FINGERPRINT_HASH
+os.makedirs(PREPARED_HASH_PATH, exist_ok=True)
 
 
 def apply_chat_template(
@@ -66,10 +71,16 @@ if __name__ == "__main__":
     tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "left"
 
-    dataset = load_dataset(DATASET_PATH, DATASET_NAME, split=DATASET_SPLIT)
-    dataset = apply_chat_template(dataset, tokenizer, CHAT_TEMPLATE)
-    dataset = prepare_dataset(dataset, MIN_LEN, MAX_LEN, {"num_proc": 8})
-    dataset = cache_dataset(dataset, FINGERPRINT, DATASET_PREPARED_PATH)
+    if PREPARED_HASH_PATH.exists() and any(PREPARED_HASH_PATH.glob("*")):
+        dataset = load_from_disk(str(PREPARED_HASH_PATH))
+    else:
+        dataset = load_dataset(DATASET_PATH, DATASET_NAME, split=DATASET_SPLIT)
+        dataset = apply_chat_template(dataset, tokenizer, CHAT_TEMPLATE)
+        dataset = prepare_dataset(dataset, MIN_LEN, MAX_LEN, {"num_proc": 8})
+        dataset = cache_dataset(dataset, PREPARED_HASH_PATH)
+    
+    print(dataset)
+    exit(0)
 
     batch_sampler = MultipackBatchSampler(
         RandomSampler(dataset),

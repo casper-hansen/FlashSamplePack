@@ -1,11 +1,8 @@
-import os
 import functools
-import hashlib
 import numpy as np
 from typing import Dict, List
-from pathlib import Path
 from functools import partial
-from datasets import Dataset, load_from_disk
+from datasets import Dataset
 
 
 def get_dataset_lengths(dataset, from_arrow=False):
@@ -148,33 +145,22 @@ def prepare_dataset(
     return dataset
 
 
-def cache_dataset(dataset: Dataset, fingerprint: str, dataset_prepared_path: str, num_workers=8):
-    ds_hash = hashlib.md5(fingerprint.encode()).hexdigest()
+def cache_dataset(dataset: Dataset, prepared_hash_path: str, num_workers=8):
+    def gen_from_iter_ds(_ds, worker_id: List[int], num_workers: List[int]):
+        for i, item in enumerate(_ds):
+            if i % num_workers[0] == worker_id[0]:
+                yield item
 
-    prepared_ds_path = Path(dataset_prepared_path) / ds_hash
-
-    if prepared_ds_path.exists() and any(prepared_ds_path.glob("*")):
-        print(f"Loading prepared dataset from disk at {prepared_ds_path}...")
-        dataset = load_from_disk(str(prepared_ds_path))
-    else:
-        print(f"Saving prepared dataset to disk... {prepared_ds_path}")
-        os.makedirs(prepared_ds_path, exist_ok=True)
-
-        def gen_from_iter_ds(_ds, worker_id: List[int], num_workers: List[int]):
-            for i, item in enumerate(_ds):
-                if i % num_workers[0] == worker_id[0]:
-                    yield item
-
-        dataset = Dataset.from_generator(
-            functools.partial(gen_from_iter_ds, dataset),
-            features=dataset.features,
-            num_proc=num_workers,
-            split="train",
-            gen_kwargs={
-                "worker_id": list(range(num_workers)),
-                "num_workers": [num_workers] * num_workers
-            }
-        )
-        dataset.save_to_disk(str(prepared_ds_path))
+    dataset = Dataset.from_generator(
+        functools.partial(gen_from_iter_ds, dataset),
+        features=dataset.features,
+        num_proc=num_workers,
+        split="train",
+        gen_kwargs={
+            "worker_id": list(range(num_workers)),
+            "num_workers": [num_workers] * num_workers
+        }
+    )
+    dataset.save_to_disk(str(prepared_ds_path))
 
     return dataset
