@@ -142,7 +142,8 @@ def patch_for_multipack(
 
             return self.accelerator.prepare(eval_dataloader)
 
-    transformers.trainer.Trainer = FlashTrainer
+    transformers.trainer.Trainer.get_train_dataloader = FlashTrainer.get_train_dataloader
+    transformers.trainer.Trainer.get_eval_dataloader = FlashTrainer.get_eval_dataloader
 
 
 def patch_remote(model_name):
