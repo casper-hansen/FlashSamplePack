@@ -2,7 +2,7 @@ import os
 import functools
 import hashlib
 import numpy as np
-from typing import Dict
+from typing import Dict, List
 from pathlib import Path
 from functools import partial
 from datasets import Dataset, load_from_disk
@@ -148,7 +148,7 @@ def prepare_dataset(
     return dataset
 
 
-def cache_dataset(dataset: Dataset, fingerprint: str, dataset_prepared_path: str):
+def cache_dataset(dataset: Dataset, fingerprint: str, dataset_prepared_path: str, num_workers=8):
     ds_hash = hashlib.md5(fingerprint.encode()).hexdigest()
 
     prepared_ds_path = Path(dataset_prepared_path) / ds_hash
@@ -160,15 +160,20 @@ def cache_dataset(dataset: Dataset, fingerprint: str, dataset_prepared_path: str
         print(f"Saving prepared dataset to disk... {prepared_ds_path}")
         os.makedirs(prepared_ds_path, exist_ok=True)
 
-        def gen_from_iter_ds(_ds, _=None):
-            yield from _ds
+        def gen_from_iter_ds(_ds, worker_id: List[int], num_workers: List[int]):
+            for i, item in enumerate(_ds):
+                if i % num_workers[0] == worker_id[0]:
+                    yield item
 
         dataset = Dataset.from_generator(
             functools.partial(gen_from_iter_ds, dataset),
             features=dataset.features,
-            num_proc=8,
+            num_proc=num_workers,
             split="train",
-            gen_kwargs={"_": list(range(8))},
+            gen_kwargs={
+                "worker_id": list(range(num_workers)),
+                "num_workers": [num_workers] * num_workers
+            }
         )
         dataset.save_to_disk(str(prepared_ds_path))
 
