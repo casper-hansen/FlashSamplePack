@@ -141,6 +141,22 @@ class V2BatchSamplerDataCollatorForSeq2Seq(DataCollatorForSeq2Seq):
                         if feature in item
                     ]
                     out_features[i][feature] = np.concatenate(arrays)
+                elif feature == "labels":
+                    arrays = []
+                    for j, item in enumerate(features_):
+                        if feature in item:
+                            labels_array = np.array(item[feature])
+                            if j > 0:
+                                boundary_size = min(5, len(labels_array))  # Adjust boundary size as needed
+                                labels_array[:boundary_size] = -100
+                            
+                            if j < len(features_) - 1 and len(labels_array) > 0:
+                                boundary_size = min(5, len(labels_array))  # Adjust boundary size as needed
+                                labels_array[-boundary_size:] = -100
+                                
+                            arrays.append(labels_array)
+                    
+                    out_features[i][feature] = np.concatenate(arrays)
                 else:
                     arrays = [
                         np.array(item[feature]) for item in features_ if feature in item
