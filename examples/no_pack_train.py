@@ -59,7 +59,7 @@ if __name__ == "__main__":
         args=SFTConfig(
             output_dir=OUTPUT_DIR,
             num_train_epochs=1,
-            save_strategy="epoch",
+            save_strategy="no",
             dataset_text_field="text",
             max_seq_length=MAX_LEN,
             dataset_num_proc=8,
@@ -78,7 +78,7 @@ if __name__ == "__main__":
             model_init_kwargs={
                 "attn_implementation": "flash_attention_2",
                 "torch_dtype": "bfloat16",
-                "use_cache": False
+                "use_cache": False,
             },
         ),
     )

@@ -26,7 +26,7 @@ CHAT_TEMPLATE = qwen25_template
 TRAIN_MICRO_BATCH_SIZE = 6
 MODEL_PATH = "Qwen/Qwen2.5-1.5B-Instruct"
 MIN_LEN = 32
-MAX_LEN = 512
+MAX_LEN = 2048
 FINGERPRINT_HASH = hashlib.md5(
      f"{MODEL_PATH}:{DATASET_PATH}:{DATASET_NAME}:{DATASET_SPLIT}:{MIN_LEN}:{MAX_LEN}:{CHAT_TEMPLATE}".encode()
 ).hexdigest()
@@ -44,7 +44,6 @@ def apply_chat_template(
             example[DATASET_COLUMN],
             chat_template=chat_template,
             tokenize=True,
-            add_generation_prompt=False,
             return_dict=True,
         )
         formatted_chat["labels"] = formatted_chat["input_ids"].copy()
@@ -103,7 +102,7 @@ if __name__ == "__main__":
         args=SFTConfig(
             output_dir=OUTPUT_DIR,
             num_train_epochs=1,
-            save_strategy="epoch",
+            save_strategy="no",
             dataset_text_field=None,
             max_seq_length=MAX_LEN,
             dataset_num_proc=8,
