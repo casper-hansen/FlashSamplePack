@@ -89,7 +89,7 @@ if __name__ == "__main__":
     )
 
     # NOTE: here we patch model and trainer internals in HF transformers
-    patch_for_multipack(batch_sampler)
+    patch_for_multipack(batch_sampler, multipack_attn=True)
 
     collator = V2BatchSamplerDataCollatorForSeq2Seq(
         tokenizer=tokenizer,

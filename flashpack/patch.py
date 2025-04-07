@@ -12,7 +12,7 @@ from flashpack.attention_utils import get_unpad_data
 
 
 def patch_for_multipack(
-    sampler, eval_sampler=None, model_name=None, has_remote_code=False
+    sampler, eval_sampler=None, model_name=None, has_remote_code=False, multipack_attn=True
 ):
     # patch dataloading
     torch.utils.data._utils.worker._worker_loop = patched_worker_loop
@@ -20,7 +20,7 @@ def patch_for_multipack(
 
     # patch model
     if has_remote_code:
-        patch_remote(model_name)
+        patch_remote(model_name, multipack_attn)
     elif hasattr(transformers, "modeling_flash_attention_utils"):
         transformers.modeling_flash_attention_utils._get_unpad_data = (  # pylint: disable=protected-access
             get_unpad_data
@@ -152,7 +152,7 @@ def patch_for_multipack(
     transformers.trainer.Trainer.get_eval_dataloader = FlashTrainer.get_eval_dataloader
 
 
-def patch_remote(model_name):
+def patch_remote(model_name, multipack_attn=True):
     model_config = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
     # we need to load the model here in order for modeling_* to be available
     with init_empty_weights():
@@ -162,6 +162,7 @@ def patch_remote(model_name):
     module_name = ".".join(parts)
     modeling_arch = importlib.import_module(module_name)
     if hasattr(modeling_arch, "_get_unpad_data"):
+        modeling_arch.MULTIPACK_ATTN = multipack_attn
         modeling_arch._get_unpad_data = (  # pylint: disable=protected-access
             get_unpad_data
         )

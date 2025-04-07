@@ -26,11 +26,46 @@ def get_unpad_data(attention_mask: torch.Tensor):
         .to(device=device)
         .detach()
     )
-    return (
-        indices,
-        cu_seqlens,
-        max_seqlen_in_batch,
-    )
+    
+    batch_size, seq_len = attention_mask.shape
+    
+    multipack_attn = True
+    
+    import inspect
+    frame = inspect.currentframe()
+    try:
+        while frame:
+            if 'self' in frame.f_locals and hasattr(frame.f_locals['self'], '__module__'):
+                module_name = frame.f_locals['self'].__module__
+                module = __import__(module_name, fromlist=[''])
+                if hasattr(module, 'MULTIPACK_ATTN'):
+                    multipack_attn = module.MULTIPACK_ATTN
+                    break
+            frame = frame.f_back
+    except:
+        pass  # If anything goes wrong, default to True
+    finally:
+        del frame  # Avoid reference cycles
+    
+    if multipack_attn:
+        attn_mask = torch.zeros((batch_size, seq_len, seq_len), dtype=torch.bool, device=device)
+        for i in range(batch_size):
+            for j in range(seq_len):
+                if attention_mask[i, j] > 0:  # Skip padding tokens
+                    attn_mask[i, j] = (attention_mask[i] == attention_mask[i, j])
+        
+        return (
+            indices,
+            cu_seqlens,
+            max_seqlen_in_batch,
+            attn_mask,
+        )
+    else:
+        return (
+            indices,
+            cu_seqlens,
+            max_seqlen_in_batch,
+        )
 
 
 def get_cu_seqlens_from_pos_ids(position_ids):
