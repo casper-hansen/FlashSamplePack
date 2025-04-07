@@ -26,7 +26,7 @@ CHAT_TEMPLATE = qwen25_template
 TRAIN_MICRO_BATCH_SIZE = 6
 MODEL_PATH = "Qwen/Qwen2.5-1.5B-Instruct"
 MIN_LEN = 32
-MAX_LEN = 2048
+MAX_LEN = 512
 FINGERPRINT_HASH = hashlib.md5(
      f"{MODEL_PATH}:{DATASET_PATH}:{DATASET_NAME}:{DATASET_SPLIT}:{MIN_LEN}:{MAX_LEN}:{CHAT_TEMPLATE}".encode()
 ).hexdigest()
@@ -47,11 +47,6 @@ def apply_chat_template(
             add_generation_prompt=False,
             return_dict=True,
         )
-        # Ensure each sequence ends with EOS token
-        if formatted_chat["input_ids"][-1] != tokenizer.eos_token_id:
-            formatted_chat["input_ids"].append(tokenizer.eos_token_id)
-            formatted_chat["attention_mask"].append(1)
-        
         formatted_chat["labels"] = formatted_chat["input_ids"].copy()
 
         return formatted_chat
