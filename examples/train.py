@@ -8,7 +8,7 @@ from torch.utils.data import RandomSampler
 from transformers import AutoTokenizer, PreTrainedTokenizer
 from flashpack import (
     patch_for_multipack,
-    llama31_template,
+    qwen25_template,
     V2BatchSamplerDataCollatorForSeq2Seq,
     MultipackBatchSampler,
     prepare_dataset,
@@ -24,9 +24,9 @@ DATASET_PATH = "HuggingFaceTB/smoltalk"
 DATASET_NAME = "everyday-conversations"
 DATASET_SPLIT = "train"
 DATASET_COLUMN = "messages"
-CHAT_TEMPLATE = llama31_template
-TRAIN_MICRO_BATCH_SIZE = 6
-MODEL_PATH = "meta-llama/Llama-3.2-1B-Instruct"
+CHAT_TEMPLATE = qwen25_template
+TRAIN_MICRO_BATCH_SIZE = 3 # tuned for H100
+MODEL_PATH = "Qwen/Qwen2.5-7B-Instruct"
 MIN_LEN = 32
 MAX_LEN = 2048
 FINGERPRINT_HASH = hashlib.md5(
@@ -76,14 +76,15 @@ if __name__ == "__main__":
             dataset = load_dataset(DATASET_PATH, DATASET_NAME, split=DATASET_SPLIT)
             dataset = apply_chat_template(dataset, tokenizer, CHAT_TEMPLATE)
             dataset = prepare_dataset(dataset, MIN_LEN, MAX_LEN, {"num_proc": 8})
+            dataset = dataset.select_columns(["input_ids", "attention_mask", "labels", "position_ids", "length"])
             dataset = cache_dataset(dataset, PREPARED_HASH_PATH)
     
     batch_sampler = MultipackBatchSampler(
         RandomSampler(dataset),
         lengths=get_dataset_lengths(dataset),
         packing_efficiency_estimate=1.0,
-        batch_max_len=TRAIN_MICRO_BATCH_SIZE * MAX_LEN,
-        batch_size=1,
+        batch_max_len=MAX_LEN,
+        batch_size=TRAIN_MICRO_BATCH_SIZE,
         drop_last=True,
     )
 
@@ -126,6 +127,11 @@ if __name__ == "__main__":
                 "torch_dtype": "bfloat16",
                 "use_cache": False,
             },
+            # NOTE: must skip data preparation to work with liger kernels
+            use_liger=True,
+            dataset_kwargs={
+                "skip_prepare_dataset": True,
+            }
         ),
     )
     trainer.train()
