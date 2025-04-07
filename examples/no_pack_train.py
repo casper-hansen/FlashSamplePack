@@ -70,7 +70,7 @@ if __name__ == "__main__":
             max_grad_norm=1.0,
             warmup_ratio=0.1,
             weight_decay=0.01,
-            logging_steps=1,
+            logging_steps=10,
             bf16=True,
             optim="adamw_torch_fused",
             # gradient_checkpointing=True,
