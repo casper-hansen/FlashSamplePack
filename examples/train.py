@@ -47,10 +47,13 @@ def apply_chat_template(
             add_generation_prompt=False,
             return_dict=True,
         )
-        labels = formatted_chat["input_ids"].copy()
-
-        # Predict every token after the first one
-        formatted_chat["labels"] = [-100] + labels[1:]
+        # Ensure each sequence ends with EOS token
+        if formatted_chat["input_ids"][-1] != tokenizer.eos_token_id:
+            formatted_chat["input_ids"].append(tokenizer.eos_token_id)
+            if "attention_mask" in formatted_chat:
+                formatted_chat["attention_mask"].append(1)
+        
+        formatted_chat["labels"] = formatted_chat["input_ids"].copy()
 
         return formatted_chat
 
