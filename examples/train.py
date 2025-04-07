@@ -8,7 +8,7 @@ from torch.utils.data import RandomSampler
 from transformers import AutoTokenizer, PreTrainedTokenizer
 from flashpack import (
     patch_for_multipack,
-    qwen25_template,
+    llama31_template,
     V2BatchSamplerDataCollatorForSeq2Seq,
     MultipackBatchSampler,
     prepare_dataset,
@@ -24,9 +24,9 @@ DATASET_PATH = "HuggingFaceTB/smoltalk"
 DATASET_NAME = "everyday-conversations"
 DATASET_SPLIT = "train"
 DATASET_COLUMN = "messages"
-CHAT_TEMPLATE = qwen25_template
+CHAT_TEMPLATE = llama31_template
 TRAIN_MICRO_BATCH_SIZE = 6
-MODEL_PATH = "Qwen/Qwen2.5-1.5B-Instruct"
+MODEL_PATH = "meta-llama/Llama-3.2-1B-Instruct"
 MIN_LEN = 32
 MAX_LEN = 2048
 FINGERPRINT_HASH = hashlib.md5(

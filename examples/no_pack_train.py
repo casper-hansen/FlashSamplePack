@@ -2,7 +2,7 @@ from trl import SFTTrainer, SFTConfig
 from datasets import load_dataset, Dataset
 from transformers import AutoTokenizer, PreTrainedTokenizer
 from flashpack import (
-    qwen25_template,
+    llama31_template,
 )
 
 OUTPUT_DIR = "./outputs"
@@ -11,9 +11,9 @@ DATASET_PATH = "HuggingFaceTB/smoltalk"
 DATASET_NAME = "everyday-conversations"
 DATASET_SPLIT = "train"
 DATASET_COLUMN = "messages"
-CHAT_TEMPLATE = qwen25_template
+CHAT_TEMPLATE = llama31_template
 TRAIN_MICRO_BATCH_SIZE = 8
-MODEL_PATH = "Qwen/Qwen2.5-1.5B-Instruct"
+MODEL_PATH = "meta-llama/Llama-3.2-1B-Instruct"
 MAX_LEN = 2048
 
 
