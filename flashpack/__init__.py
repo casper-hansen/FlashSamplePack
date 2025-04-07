@@ -8,3 +8,4 @@ from flashpack.dataset import (
     get_dataset_lengths,
     cache_dataset,
 )
+from flashpack.distributed import zero_first, is_local_main_process

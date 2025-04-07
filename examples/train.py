@@ -14,6 +14,8 @@ from flashpack import (
     prepare_dataset,
     get_dataset_lengths,
     cache_dataset,
+    zero_first,
+    is_local_main_process,
 )
 
 OUTPUT_DIR = "./outputs"
@@ -67,13 +69,14 @@ if __name__ == "__main__":
     tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "left"
 
-    if PREPARED_HASH_PATH.exists() and any(PREPARED_HASH_PATH.glob("*")):
-        dataset = load_from_disk(str(PREPARED_HASH_PATH))
-    else:
-        dataset = load_dataset(DATASET_PATH, DATASET_NAME, split=DATASET_SPLIT)
-        dataset = apply_chat_template(dataset, tokenizer, CHAT_TEMPLATE)
-        dataset = prepare_dataset(dataset, MIN_LEN, MAX_LEN, {"num_proc": 8})
-        dataset = cache_dataset(dataset, PREPARED_HASH_PATH)
+    with zero_first(is_local_main_process()):
+        if PREPARED_HASH_PATH.exists() and any(PREPARED_HASH_PATH.glob("*")):
+            dataset = load_from_disk(str(PREPARED_HASH_PATH))
+        else:
+            dataset = load_dataset(DATASET_PATH, DATASET_NAME, split=DATASET_SPLIT)
+            dataset = apply_chat_template(dataset, tokenizer, CHAT_TEMPLATE)
+            dataset = prepare_dataset(dataset, MIN_LEN, MAX_LEN, {"num_proc": 8})
+            dataset = cache_dataset(dataset, PREPARED_HASH_PATH)
     
     batch_sampler = MultipackBatchSampler(
         RandomSampler(dataset),

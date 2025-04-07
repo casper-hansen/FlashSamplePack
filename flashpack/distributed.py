@@ -3,6 +3,7 @@ from datetime import timedelta
 
 import torch
 import torch.distributed as dist
+from contextlib import contextmanager
 from accelerate import PartialState
 from transformers.utils.import_utils import (
     is_torch_cuda_available,
@@ -62,6 +63,22 @@ def is_main_process():
     if not is_distributed():
         return True
     return dist.get_rank() == 0
+
+
+def is_local_main_process():
+    return PartialState().is_local_main_process
+
+
+@contextmanager
+def zero_first(is_main):
+    """
+    runs the wrapped context so that rank 0 runs first before other ranks
+    """
+    if not is_main:  # other ranks wait first
+        barrier()
+    yield
+    if is_main:  # then rank 0 waits after it has run the context
+        barrier()
 
 
 def compute_and_broadcast(fn):  # pylint: disable=invalid-name
