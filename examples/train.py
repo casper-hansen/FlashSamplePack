@@ -76,7 +76,6 @@ if __name__ == "__main__":
             dataset = load_dataset(DATASET_PATH, DATASET_NAME, split=DATASET_SPLIT)
             dataset = apply_chat_template(dataset, tokenizer, CHAT_TEMPLATE)
             dataset = prepare_dataset(dataset, MIN_LEN, MAX_LEN, {"num_proc": 8})
-            dataset = dataset.select_columns(["input_ids", "attention_mask", "labels", "position_ids", "length"])
             dataset = cache_dataset(dataset, PREPARED_HASH_PATH)
     
     batch_sampler = MultipackBatchSampler(

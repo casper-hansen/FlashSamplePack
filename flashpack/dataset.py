@@ -142,6 +142,8 @@ def prepare_dataset(
         **filter_map_kwargs,
     )
 
+    dataset = dataset.select_columns(["input_ids", "attention_mask", "labels", "position_ids", "length"])
+
     return dataset
 
 
