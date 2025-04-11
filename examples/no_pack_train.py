@@ -2,7 +2,7 @@ from trl import SFTTrainer, SFTConfig
 from datasets import load_dataset, Dataset
 from transformers import AutoTokenizer, PreTrainedTokenizer
 from flashpack import (
-    qwen25_template,
+    mistral_template,
 )
 
 OUTPUT_DIR = "./outputs"
@@ -10,9 +10,9 @@ DATASET_PREPARED_PATH = "./prepared_datasets"
 DATASET_PATH = "Yukang/LongAlpaca-12k"
 DATASET_NAME = None
 DATASET_SPLIT = "train"
-CHAT_TEMPLATE = qwen25_template
+CHAT_TEMPLATE = mistral_template
 TRAIN_MICRO_BATCH_SIZE = 2
-MODEL_PATH = "Qwen/Qwen2.5-7B-Instruct"
+MODEL_PATH = "mistralai/Mistral-Nemo-Base-2407"
 MAX_LEN = 65536
 
 

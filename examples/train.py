@@ -8,7 +8,7 @@ from torch.utils.data import RandomSampler
 from transformers import AutoTokenizer, PreTrainedTokenizer
 from flashpack import (
     patch_for_multipack,
-    qwen25_template,
+    mistral_template,
     V2BatchSamplerDataCollatorForSeq2Seq,
     MultipackBatchSampler,
     prepare_dataset,
@@ -23,9 +23,9 @@ DATASET_PREPARED_PATH = "./prepared_datasets"
 DATASET_PATH = "Yukang/LongAlpaca-12k"
 DATASET_NAME = None
 DATASET_SPLIT = "train"
-CHAT_TEMPLATE = qwen25_template
+CHAT_TEMPLATE = mistral_template
 TRAIN_MICRO_BATCH_SIZE = 1
-MODEL_PATH = "Qwen/Qwen2.5-7B-Instruct"
+MODEL_PATH = "mistralai/Mistral-Nemo-Base-2407"
 MIN_LEN = 32
 MAX_LEN = 65536
 FINGERPRINT_HASH = hashlib.md5(
@@ -84,7 +84,6 @@ if __name__ == "__main__":
     batch_sampler = MultipackBatchSampler(
         RandomSampler(dataset),
         lengths=get_dataset_lengths(dataset),
-        packing_efficiency_estimate=1.0,
         batch_max_len=MAX_LEN,
         batch_size=TRAIN_MICRO_BATCH_SIZE,
         drop_last=True,
@@ -95,9 +94,9 @@ if __name__ == "__main__":
 
     collator = V2BatchSamplerDataCollatorForSeq2Seq(
         tokenizer=tokenizer,
-        padding=True,
+        padding="max_length",
         max_length=MAX_LEN,
-        pad_to_multiple_of=64 * math.ceil(MAX_LEN / 64),
+        pad_to_multiple_of=64,
     )
 
     trainer = SFTTrainer(
@@ -107,8 +106,7 @@ if __name__ == "__main__":
         data_collator=collator,
         args=SFTConfig(
             output_dir=OUTPUT_DIR,
-            max_steps=10,
-            # num_train_epochs=1,
+            num_train_epochs=1,
             save_strategy="no",
             dataset_text_field=None,
             max_seq_length=MAX_LEN,
