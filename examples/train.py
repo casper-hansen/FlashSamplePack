@@ -20,15 +20,14 @@ from flashpack import (
 
 OUTPUT_DIR = "./outputs"
 DATASET_PREPARED_PATH = "./prepared_datasets"
-DATASET_PATH = "HuggingFaceTB/smoltalk"
-DATASET_NAME = "everyday-conversations"
+DATASET_PATH = "Yukang/LongAlpaca-12k"
+DATASET_NAME = None
 DATASET_SPLIT = "train"
-DATASET_COLUMN = "messages"
 CHAT_TEMPLATE = qwen25_template
-TRAIN_MICRO_BATCH_SIZE = 3 # tuned for H100
+TRAIN_MICRO_BATCH_SIZE = 1
 MODEL_PATH = "Qwen/Qwen2.5-7B-Instruct"
 MIN_LEN = 32
-MAX_LEN = 2048
+MAX_LEN = 65536
 FINGERPRINT_HASH = hashlib.md5(
      f"{MODEL_PATH}:{DATASET_PATH}:{DATASET_NAME}:{DATASET_SPLIT}:{MIN_LEN}:{MAX_LEN}:{CHAT_TEMPLATE}".encode()
 ).hexdigest()
@@ -42,8 +41,13 @@ def apply_chat_template(
     chat_template: str,
 ) -> Dataset:
     def map_fn(example):
+        conversation = [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": example["instruction"]},
+            {"role": "assistant", "content": example["output"]},
+        ]
         formatted_chat = tokenizer.apply_chat_template(
-            example[DATASET_COLUMN],
+            conversation,
             chat_template=chat_template,
             tokenize=True,
             return_dict=True,
@@ -56,7 +60,6 @@ def apply_chat_template(
         map_fn,
         num_proc=8,
         desc="Applying Chat Template",
-        remove_columns=[DATASET_COLUMN],
     )
 
     tokenizer.chat_template = chat_template
@@ -94,7 +97,7 @@ if __name__ == "__main__":
         tokenizer=tokenizer,
         padding=True,
         max_length=MAX_LEN,
-        pad_to_multiple_of=8 * math.ceil(MAX_LEN / 8),
+        pad_to_multiple_of=64 * math.ceil(MAX_LEN / 64),
     )
 
     trainer = SFTTrainer(
@@ -104,7 +107,8 @@ if __name__ == "__main__":
         data_collator=collator,
         args=SFTConfig(
             output_dir=OUTPUT_DIR,
-            num_train_epochs=1,
+            max_steps=10,
+            # num_train_epochs=1,
             save_strategy="no",
             dataset_text_field=None,
             max_seq_length=MAX_LEN,
@@ -119,8 +123,8 @@ if __name__ == "__main__":
             logging_steps=1,
             bf16=True,
             optim="adamw_torch_fused",
-            # gradient_checkpointing=True,
-            # gradient_checkpointing_kwargs={"use_reentrant": False},
+            gradient_checkpointing=True,
+            gradient_checkpointing_kwargs={"use_reentrant": False},
             model_init_kwargs={
                 "attn_implementation": "flash_attention_2",
                 "torch_dtype": "bfloat16",
@@ -131,7 +135,7 @@ if __name__ == "__main__":
             dataset_kwargs={
                 "skip_prepare_dataset": True,
             },
-            # deepspeed="./examples/zero2.json"
+            deepspeed="./examples/zero3.json"
         ),
     )
     trainer.train()

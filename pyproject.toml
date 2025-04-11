@@ -27,9 +27,8 @@ dependencies = [
 train = [
     "trl",
     "liger-kernel",
-]
-flash = [
     "flash-attn==2.7.4.post1",
+    "deepspeed>=0.16.4",
 ]
 dev = [
     "black",

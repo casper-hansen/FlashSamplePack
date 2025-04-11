@@ -7,14 +7,13 @@ from flashpack import (
 
 OUTPUT_DIR = "./outputs"
 DATASET_PREPARED_PATH = "./prepared_datasets"
-DATASET_PATH = "HuggingFaceTB/smoltalk"
-DATASET_NAME = "everyday-conversations"
+DATASET_PATH = "Yukang/LongAlpaca-12k"
+DATASET_NAME = None
 DATASET_SPLIT = "train"
-DATASET_COLUMN = "messages"
 CHAT_TEMPLATE = qwen25_template
-TRAIN_MICRO_BATCH_SIZE = 8 # tuned for H100
+TRAIN_MICRO_BATCH_SIZE = 2
 MODEL_PATH = "Qwen/Qwen2.5-7B-Instruct"
-MAX_LEN = 2048
+MAX_LEN = 65536
 
 
 def apply_chat_template(
@@ -23,8 +22,13 @@ def apply_chat_template(
     chat_template: str,
 ) -> Dataset:
     def map_fn(example):
+        conversation = [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": example["instruction"]},
+            {"role": "assistant", "content": example["output"]},
+        ]
         formatted_chat = tokenizer.apply_chat_template(
-            example[DATASET_COLUMN],
+            conversation,
             chat_template=chat_template,
             tokenize=False,
             add_generation_prompt=False,
@@ -36,7 +40,6 @@ def apply_chat_template(
         map_fn,
         num_proc=8,
         desc="Applying Chat Template",
-        remove_columns=[DATASET_COLUMN],
     )
 
     tokenizer.chat_template = chat_template
@@ -74,13 +77,14 @@ if __name__ == "__main__":
             bf16=True,
             optim="adamw_torch_fused",
             use_liger=True,
-            # gradient_checkpointing=True,
-            # gradient_checkpointing_kwargs={"use_reentrant": False},
+            gradient_checkpointing=True,
+            gradient_checkpointing_kwargs={"use_reentrant": False},
             model_init_kwargs={
                 "attn_implementation": "flash_attention_2",
                 "torch_dtype": "bfloat16",
                 "use_cache": False,
             },
+            deepspeed="./examples/zero3.json"
         ),
     )
     trainer.train()
