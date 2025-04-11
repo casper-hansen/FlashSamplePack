@@ -131,7 +131,8 @@ if __name__ == "__main__":
             use_liger=True,
             dataset_kwargs={
                 "skip_prepare_dataset": True,
-            }
+            },
+            # deepspeed="./examples/zero2.json"
         ),
     )
     trainer.train()

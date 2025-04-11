@@ -30,3 +30,23 @@ Speed in everyday conversations on Qwen 2.5 7B (1x H100, tokens/second):
 - Sample pack, flash attention: 10415.406
 - Sample pack, flex attention: 8829.433
 - NO sample pack, flash attention: 6701.847
+
+### Running the example
+
+#### Python
+
+Running with Python seems to be most memory-optimal rather than with accelerate.
+
+```
+python examples/train.py
+```
+
+#### DeepSpeed
+
+Running with DeepSpeed enables AutoTP which is claimed to speedup training 4x.
+
+NOTE: Make sure to specify the deepspeed config in the training script.
+
+```
+deepspeed --num_gpus=8 examples/train.py
+```
