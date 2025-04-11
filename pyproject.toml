@@ -16,7 +16,7 @@ license = {text = "MIT"}
 dependencies = [
     "torch",
     "numba",
-    "transformers==4.51.0",
+    "transformers>=4.51.0",
     "datasets==3.5.0",
     "accelerate==1.5.2",
     "numpy>=1.24.4,<=2.0.1",
@@ -26,6 +26,7 @@ dependencies = [
 [project.optional-dependencies]
 train = [
     "trl",
+    "liger-kernel",
 ]
 flash = [
     "flash-attn==2.7.4.post1",
