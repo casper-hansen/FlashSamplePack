@@ -1,7 +1,8 @@
 import os
-import math
+import time
 import hashlib
 from pathlib import Path
+from filelock import FileLock
 from trl import SFTTrainer, SFTConfig
 from datasets import load_dataset, Dataset, load_from_disk
 from torch.utils.data import RandomSampler
@@ -20,7 +21,7 @@ from flashpack import (
 
 OUTPUT_DIR = "./outputs"
 DATASET_PREPARED_PATH = "./prepared_datasets"
-DATASET_PATH = "Yukang/LongAlpaca-12k"
+DATASET_PATH = "PatentPilotAI/patent-instruct-v3.1-length-sorted"
 DATASET_NAME = None
 DATASET_SPLIT = "train"
 CHAT_TEMPLATE = mistral_template
@@ -32,6 +33,8 @@ FINGERPRINT_HASH = hashlib.md5(
      f"{MODEL_PATH}:{DATASET_PATH}:{DATASET_NAME}:{DATASET_SPLIT}:{MIN_LEN}:{MAX_LEN}:{CHAT_TEMPLATE}".encode()
 ).hexdigest()
 PREPARED_HASH_PATH = Path(DATASET_PREPARED_PATH) / FINGERPRINT_HASH
+LOCK_FILE = PREPARED_HASH_PATH / ".prep.lock"
+READY_FLAG = PREPARED_HASH_PATH / ".ready"
 os.makedirs(PREPARED_HASH_PATH, exist_ok=True)
 
 
@@ -41,13 +44,8 @@ def apply_chat_template(
     chat_template: str,
 ) -> Dataset:
     def map_fn(example):
-        conversation = [
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": example["instruction"]},
-            {"role": "assistant", "content": example["output"]},
-        ]
         formatted_chat = tokenizer.apply_chat_template(
-            conversation,
+            example["conversation"],
             chat_template=chat_template,
             tokenize=True,
             return_dict=True,
@@ -58,7 +56,7 @@ def apply_chat_template(
 
     dataset = dataset.map(
         map_fn,
-        num_proc=8,
+        num_proc=64,
         desc="Applying Chat Template",
     )
 
@@ -72,14 +70,20 @@ if __name__ == "__main__":
     tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "left"
 
-    with zero_first(is_local_main_process()):
-        if PREPARED_HASH_PATH.exists() and any(PREPARED_HASH_PATH.glob("*")):
-            dataset = load_from_disk(str(PREPARED_HASH_PATH))
-        else:
+    with FileLock(str(LOCK_FILE)):
+        # rank-0 (the one that acquires the lock first) does the heavy work
+        if not READY_FLAG.exists():
             dataset = load_dataset(DATASET_PATH, DATASET_NAME, split=DATASET_SPLIT)
             dataset = apply_chat_template(dataset, tokenizer, CHAT_TEMPLATE)
             dataset = prepare_dataset(dataset, MIN_LEN, MAX_LEN, {"num_proc": 8})
             dataset = cache_dataset(dataset, PREPARED_HASH_PATH)
+            READY_FLAG.touch() # mark as finished
+
+    # Everybody arrives here – no need for dist.barrier()
+    while not READY_FLAG.exists():
+        time.sleep(5)
+    
+    dataset = load_from_disk(str(PREPARED_HASH_PATH))
     
     batch_sampler = MultipackBatchSampler(
         RandomSampler(dataset),
